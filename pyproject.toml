@@ -11,3 +11,13 @@ dependencies = [
     "scikit-learn>=1.7.2",
     "streamlit>=1.50.0",
 ]
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["toolkit"]
+
+[tool.setuptools.package-dir]
+"email_assistant" = "toolkit"
