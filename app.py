@@ -113,17 +113,15 @@ with st.sidebar:
       st.info('Select a chat session to delete.', icon=':material/info:')
 
   if session_id:
-    cached_files = list_files(
-      cache_root=os.getenv('CACHE_ROOT'),
-      folder=chat_history.folder,
-    )
-    if cached_files:
-      st.divider()
-      with st.expander('Cached Files', expanded=True):
-        st.markdown('\n'.join([
-          f'{it + 1}. {filename}'
-          for it, filename in enumerate(cached_files)
-        ]))
+    st.divider()
+    with st.expander('Cached Files', expanded=True):
+      st.markdown('\n'.join([
+        f'`{filename}`'
+        for filename in list_files(
+          cache_root=os.getenv('CACHE_ROOT'),
+          folder=chat_history.folder,
+        )
+      ]) or 'No files found.')
 
 
 # Streamlit Main Content
@@ -136,7 +134,7 @@ if session_id:
   if prompt := st.chat_input('Chat with Me!', **file_kwargs):
     if prompt['files']:
       with st.spinner('Caching uploaded files...', show_time=True, width='stretch'):
-        cached_files = save_uploaded_files(
+        file_status = save_uploaded_files(
           cache_root=os.getenv('CACHE_ROOT'),
           folder=chat_history.folder, files=prompt['files'],
         )
