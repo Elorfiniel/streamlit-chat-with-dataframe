@@ -55,6 +55,11 @@ def search_chat_history(session, chat_id: str):
   ).first()
 
 
+def create_chat_history(session, chat_history: ChatHistory):
+  session.add(chat_history)
+  session.commit()
+
+
 def update_chat_name(session, chat_id: str, name: str):
   chat_history = search_chat_history(session, chat_id)
 
