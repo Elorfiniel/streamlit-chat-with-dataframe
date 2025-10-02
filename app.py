@@ -3,9 +3,9 @@ from toolkit.database import (
   create_chat_history, ChatHistory,
   update_chat_name, update_chat_status,
 )
-from toolkit.fileio import create_cache_folder
+from toolkit.fileio import create_cache_folder, save_uploaded_files, list_files
 from toolkit.chatbot import create_chatbot, init_chat_session
-from toolkit.ui import message_type, message_avatar
+from toolkit.ui import render_message, render_human_prompt, render_ai_response
 
 import dotenv
 import os
@@ -112,25 +112,43 @@ with st.sidebar:
     else:
       st.info('Select a chat session to delete.', icon=':material/info:')
 
+  if session_id:
+    cached_files = list_files(
+      cache_root=os.getenv('CACHE_ROOT'),
+      folder=chat_history.folder,
+    )
+    if cached_files:
+      st.divider()
+      with st.expander('Cached Files', expanded=True):
+        st.markdown('\n'.join([
+          f'{it + 1}. {filename}'
+          for it, filename in enumerate(cached_files)
+        ]))
+
 
 # Streamlit Main Content
 if session_id:
   session_history = st.session_state.chatbot.get_session_history(session_id)
   for message in session_history.get_messages():
-    mtype, avatar = message_type(message, avatar=True)
-    with st.chat_message(mtype, avatar=avatar):
-      st.markdown(message.content)
+    render_message(message)
 
-  if prompt := st.chat_input('Chat with Me!'):
-    with st.chat_message('human', avatar=message_avatar('human')):
-      st.markdown(prompt)
+  file_kwargs = dict(accept_file=True, file_type=['csv', 'txt', 'xlsx'])
+  if prompt := st.chat_input('Chat with Me!', **file_kwargs):
+    if prompt['files']:
+      with st.spinner('Caching uploaded files...', show_time=True, width='stretch'):
+        cached_files = save_uploaded_files(
+          cache_root=os.getenv('CACHE_ROOT'),
+          folder=chat_history.folder, files=prompt['files'],
+        )
 
-    stream = st.session_state.chatbot.stream(
-      {'message': prompt},
-      config={'configurable': {'session_id': session_id}},
-    )
-    with st.chat_message('ai', avatar=message_avatar('ai')):
-      st.write_stream(stream)
+    if prompt['text']:
+      render_human_prompt(prompt['text'])
+
+      stream = st.session_state.chatbot.stream(
+        {'message': prompt['text']},
+        config={'configurable': {'session_id': session_id}},
+      )
+      render_ai_response(stream)
 
 else:
   st.header('Welcome!', divider='red')

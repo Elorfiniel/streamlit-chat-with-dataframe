@@ -6,7 +6,9 @@ from langchain_core.messages import (
   ToolMessage, ToolCallChunk,
   ChatMessage, ChatMessageChunk,
 )
-from typing import Union
+from typing import Iterator, Union
+
+import streamlit as st
 
 
 def message_avatar(mtype: str):
@@ -35,3 +37,19 @@ def message_type(message: Union[str, BaseMessage, BaseMessageChunk], avatar: boo
   else:
     mtype = 'unknown'
   return (mtype, message_avatar(mtype)) if avatar else mtype
+
+
+def render_message(message: BaseMessage):
+  mtype, avatar = message_type(message, avatar=True)
+  with st.chat_message(mtype, avatar=avatar):
+    st.markdown(message.content)
+
+
+def render_human_prompt(prompt: str):
+  with st.chat_message('human', avatar=message_avatar('human')):
+    st.markdown(prompt)
+
+
+def render_ai_response(stream: Iterator):
+  with st.chat_message('ai', avatar=message_avatar('ai')):
+    st.write_stream(stream)
