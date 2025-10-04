@@ -4,14 +4,11 @@ from langchain_core.prompts import (
   SystemMessagePromptTemplate,
 )
 from langchain_core.runnables.history import RunnableWithMessageHistory
-from langchain_core.messages import HumanMessage, ToolMessage
-from langchain_core.runnables import RunnablePassthrough, RunnableGenerator, RunnableConfig
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_community.chat_message_histories import SQLChatMessageHistory
 from langchain_openai.chat_models import ChatOpenAI
-from typing import Dict, List, Iterator
+from typing import Dict, List
 
-from toolkit.fileio import HIDDEN_FOLDER
 from toolkit.prompt import (
   CHATBOT_SYSTEM_PROMPT_TEMPLATE,
   DEFAULT_TOOL_GUIDELINES,
@@ -70,12 +67,9 @@ def create_chatbot(model: BaseChatModel, message_db: str):
 
 
 def invoke_chatbot_tools(session_history: SQLChatMessageHistory,
-                               tool_calls: List[Dict],
-                               cache_root: str, folder: str):
-  injected_args = dict(
-    cwd=os.path.join(cache_root, folder, HIDDEN_FOLDER),
-  )
-
+                         tool_calls: List[Dict],
+                         cache_root: str, folder: str):
+  injected_args = dict(cwd=os.path.join(cache_root, folder))
   for tool_message in invoke_tools(tool_calls, injected_args):
     session_history.add_message(tool_message)
     yield tool_message

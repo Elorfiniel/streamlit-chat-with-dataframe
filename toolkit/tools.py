@@ -4,6 +4,7 @@ from langchain_core.tools import tool, BaseTool, InjectedToolArg
 from langchain_openai.chat_models import ChatOpenAI
 from typing import Annotated, Dict, Generator, List, Optional, Tuple
 
+from toolkit.fileio import HIDDEN_FOLDER
 from toolkit.prompt import CODE_GENERATION_PROMPT_TEMPLATE
 from toolkit.schema import PythonCode, ObjectHandle, CodeResult
 
@@ -25,6 +26,8 @@ def code_generation(desc: str, cwd: Annotated[str, InjectedToolArg]) -> Tuple[Py
     cwd: The working directory for code generation.
   '''
 
+  hidden_folder = os.path.join(cwd, HIDDEN_FOLDER)
+
   prompt = ChatPromptTemplate.from_template(
     CODE_GENERATION_PROMPT_TEMPLATE
   ).partial(allowed_modules='pandas, numpy, matplotlib, seaborn, scipy, sklearn')
@@ -35,10 +38,10 @@ def code_generation(desc: str, cwd: Annotated[str, InjectedToolArg]) -> Tuple[Py
 
   code: PythonCode = (prompt | model).invoke({'desc': desc})
 
-  fp, path = tempfile.mkstemp(suffix='.py', dir=cwd, text=True)
+  fp, path = tempfile.mkstemp(suffix='.py', dir=hidden_folder, text=True)
   with os.fdopen(fp, 'w', encoding='utf-8') as file:
     file.write(code.code)
-  handle = ObjectHandle(handle=os.path.relpath(path, cwd))
+  handle = ObjectHandle(handle=os.path.relpath(path, hidden_folder))
 
   return (code, handle)
 
@@ -52,11 +55,16 @@ def code_execution(path: str, cwd: Annotated[str, InjectedToolArg]) -> CodeResul
     cwd: The working directory for code execution.
   '''
 
-  actual_cwd = os.getcwd()
+  parent_proc_cwd = os.getcwd()
   os.chdir(cwd)
 
+  script_relpath = os.path.join(HIDDEN_FOLDER, path)
+
   try:
-    proc = subprocess.run([sys.executable, path], capture_output=True, text=True, check=True)
+    proc = subprocess.run(
+      [sys.executable, script_relpath],
+      capture_output=True, text=True, check=True,
+    )
     stdout = proc.stdout if proc.stdout else ''
     stderr = proc.stderr if proc.stderr else ''
     result = CodeResult(status='Success', stdout=stdout, stderr=stderr)
@@ -72,7 +80,7 @@ def code_execution(path: str, cwd: Annotated[str, InjectedToolArg]) -> CodeResul
       stdout='', stderr='',
     )
 
-  os.chdir(actual_cwd)
+  os.chdir(parent_proc_cwd)
 
   return result
 
