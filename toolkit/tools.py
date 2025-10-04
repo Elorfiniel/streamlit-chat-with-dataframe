@@ -1,49 +1,40 @@
 from langchain_core.messages import ToolMessage
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import tool, BaseTool, InjectedToolArg
-from langchain_openai.chat_models import ChatOpenAI
-from typing import Annotated, Dict, Generator, List, Optional, Tuple
+from typing import Annotated, Dict, Generator, List, Optional
 
 from toolkit.fileio import HIDDEN_FOLDER
-from toolkit.prompt import CODE_GENERATION_PROMPT_TEMPLATE
-from toolkit.schema import PythonCode, ObjectHandle, CodeResult
+from toolkit.schema import CodeResult
 
 import json
 import os
 import subprocess
 import sys
-import tempfile
 
 
 @tool(parse_docstring=True)
-def code_generation(desc: str, cwd: Annotated[str, InjectedToolArg]) -> Tuple[PythonCode, ObjectHandle]:
-  '''Generate Python code to perform data analysis task based on the description.
+def save_generation(text: str, filename: str, code: bool,
+                    cwd: Annotated[str, InjectedToolArg]) -> Dict[str, str]:
+  '''Save the generated text content, ie. code snippets, to the specified file.
 
-  Allowed modules: `pandas`, `numpy`, `matplotlib`, `seaborn`, `scipy`, `sklearn`.
+  Note: code snippets are saved inside a special folder (hidden from the user).
 
   Args:
-    desc: The description of the data anaylsis code.
-    cwd: The working directory for code generation.
+    text: The generated text content, ie. text, code, etc.
+    filename: The filename (relative path).
+    code: Whether the generated text content is code, ie. Python scripts.
+    cwd: The working directory for tool execution.
   '''
 
-  hidden_folder = os.path.join(cwd, HIDDEN_FOLDER)
+  prefix = [cwd, HIDDEN_FOLDER] if code else [cwd]
+  filepath = os.path.join(*prefix, filename)
 
-  prompt = ChatPromptTemplate.from_template(
-    CODE_GENERATION_PROMPT_TEMPLATE
-  ).partial(allowed_modules='pandas, numpy, matplotlib, seaborn, scipy, sklearn')
+  folder = os.path.dirname(filepath)
+  os.makedirs(folder, exist_ok=True)
 
-  model = ChatOpenAI(
-    model='gpt-4o-mini', temperature=0.2, top_p=0.9,
-  ).with_structured_output(PythonCode)
+  with open(filepath, 'w', encoding='utf-8') as file:
+    file.write(text)
 
-  code: PythonCode = (prompt | model).invoke({'desc': desc})
-
-  fp, path = tempfile.mkstemp(suffix='.py', dir=hidden_folder, text=True)
-  with os.fdopen(fp, 'w', encoding='utf-8') as file:
-    file.write(code.code)
-  handle = ObjectHandle(handle=os.path.relpath(path, hidden_folder))
-
-  return (code, handle)
+  return dict(filename=filename, location='code' if code else 'text')
 
 
 @tool(parse_docstring=True)
@@ -52,7 +43,7 @@ def code_execution(path: str, cwd: Annotated[str, InjectedToolArg]) -> CodeResul
 
   Args:
     path: The path of the Python code to execute.
-    cwd: The working directory for code execution.
+    cwd: The working directory for tool execution.
   '''
 
   parent_proc_cwd = os.getcwd()
@@ -85,20 +76,13 @@ def code_execution(path: str, cwd: Annotated[str, InjectedToolArg]) -> CodeResul
   return result
 
 
-TOOL_LIST = [code_generation, code_execution]
+TOOL_LIST = [save_generation, code_execution]
 INJECTED_TOOL_ARGS = {
-  code_generation.name: ['cwd'],
+  save_generation.name: ['cwd'],
   code_execution.name: ['cwd'],
 }
 TOOL_OUTPUT_PARSERS = {
-  code_generation.name: lambda x: dict(
-    overview=x[0].overview,
-    code=x[0].code,
-    path=x[1].handle,
-  ),
-  code_execution.name: lambda x: dict(
-    **x.model_dump(),
-  ),
+  code_execution.name: lambda x: x.model_dump(),
   '__exec_exception__': lambda x: dict(
     ex_type=type(x).__name__, message=str(x),
   ),
@@ -122,7 +106,7 @@ def invoke_tools(tool_calls: List[Dict], injected_args: Dict) -> Generator[ToolM
     try:
       tool = get_tools([tool_name])[0]
       tool_output = tool.invoke(args)
-      parser = TOOL_OUTPUT_PARSERS.get(tool_name)
+      parser = TOOL_OUTPUT_PARSERS.get(tool_name, lambda x: x)
       content = parser(tool_output)
     except Exception as exception:
       parser = TOOL_OUTPUT_PARSERS.get('__exec_exception__')

@@ -8,7 +8,7 @@ from langchain_core.messages import (
 )
 from typing import Dict, List, Iterator, Union
 
-from toolkit.tools import code_generation, code_execution
+from toolkit.tools import code_execution
 
 import json
 import streamlit as st
@@ -55,10 +55,6 @@ def render_tool_message(message: ToolMessage):
 
     if 'ex_type' in content:
       st.error(f'{content["ex_type"]}: {content["message"]}')
-
-    elif message.name == code_generation.name:
-      st.info(f'({content["path"]}) {content["overview"]}')
-      st.markdown(f'```python\n{content["code"]}\n```')
 
     elif message.name == code_execution.name:
       if content['status'].startswith('Failure'):
