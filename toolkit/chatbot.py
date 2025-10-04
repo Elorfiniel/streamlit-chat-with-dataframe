@@ -1,30 +1,64 @@
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.prompts import (
+  ChatPromptTemplate, MessagesPlaceholder,
+  HumanMessagePromptTemplate,
+  SystemMessagePromptTemplate,
+)
 from langchain_core.runnables.history import RunnableWithMessageHistory
-from langchain_core.messages import AIMessage
+from langchain_core.messages import HumanMessage, ToolMessage
+from langchain_core.runnables import RunnablePassthrough, RunnableGenerator, RunnableConfig
+from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_community.chat_message_histories import SQLChatMessageHistory
 from langchain_openai.chat_models import ChatOpenAI
+from typing import Dict, List, Iterator
+
+from toolkit.fileio import HIDDEN_FOLDER
+from toolkit.prompt import (
+  CHATBOT_SYSTEM_PROMPT_TEMPLATE,
+  DEFAULT_TOOL_GUIDELINES,
+  DEFAULT_GUIDELINES,
+  CONVERSATION_OPENINGS,
+)
+from toolkit.tools import get_tools, invoke_tools
+
+import os
+import random
 
 
-# Prompt Templates
-prompt = ChatPromptTemplate.from_messages([
-  ('system', 'You are a helpful assistant.'),
-  MessagesPlaceholder(variable_name='history'),
-  ('human', '{message}'),
-])
+def create_prompt(tool_guidelines: str, guidelines: str, no_human: bool = False):
+  system_prompt = SystemMessagePromptTemplate.from_template(
+    CHATBOT_SYSTEM_PROMPT_TEMPLATE.format(
+      tool_guidelines=tool_guidelines,
+      guidelines=guidelines,
+    ),
+  )
+  chat_history = MessagesPlaceholder(variable_name='history')
+  human_prompt = HumanMessagePromptTemplate.from_template('{message}')
+
+  messages = [system_prompt, chat_history]
+  if not no_human:
+    messages.append(human_prompt)
+
+  return ChatPromptTemplate.from_messages(messages)
 
 
 def init_chat_session(session_id: str, message_db: str):
   session_history = SQLChatMessageHistory(session_id, connection=f'sqlite:///{message_db}')
-  ai_message = AIMessage(content='How can I help you today? Please ask me anything.')
-  session_history.add_ai_message(ai_message)
+  session_history.add_ai_message(random.choice(CONVERSATION_OPENINGS))
 
 
-# Chatbot
-def create_chatbot(model: str, message_db: str, **kwargs):
-  llm = ChatOpenAI(model=model, **kwargs)
+def create_chat_model(model_name: str, **kwargs) -> BaseChatModel:
+  return ChatOpenAI(model=model_name, **kwargs)
+
+
+def create_chatbot(model: BaseChatModel, message_db: str):
+  prompt = create_prompt(
+    tool_guidelines=DEFAULT_TOOL_GUIDELINES.strip(),
+    guidelines=DEFAULT_GUIDELINES.strip(),
+  )
+  model_with_tools = model.bind_tools(get_tools())
 
   chatbot = RunnableWithMessageHistory(
-    runnable=prompt | llm,
+    runnable=prompt | model_with_tools,
     get_session_history=lambda session_id: (
       SQLChatMessageHistory(session_id, connection=f'sqlite:///{message_db}')
     ),
@@ -33,3 +67,15 @@ def create_chatbot(model: str, message_db: str, **kwargs):
   )
 
   return chatbot
+
+
+def invoke_chatbot_tools(session_history: SQLChatMessageHistory,
+                               tool_calls: List[Dict],
+                               cache_root: str, folder: str):
+  injected_args = dict(
+    cwd=os.path.join(cache_root, folder, HIDDEN_FOLDER),
+  )
+
+  for tool_message in invoke_tools(tool_calls, injected_args):
+    session_history.add_message(tool_message)
+    yield tool_message

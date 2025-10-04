@@ -9,8 +9,10 @@ dependencies = [
     "langchain-community>=0.3.30",
     "langchain-openai>=0.3.34",
     "langgraph>=0.6.8",
+    "matplotlib>=3.10.6",
     "python-dotenv>=1.1.1",
     "scikit-learn>=1.7.2",
+    "seaborn>=0.13.2",
     "streamlit>=1.50.0",
 ]
 

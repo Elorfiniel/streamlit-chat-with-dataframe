@@ -5,14 +5,21 @@ import os
 import tempfile
 
 
+HIDDEN_FOLDER = '.hidden'
+
+
 def create_cache_folder(cache_root: str, **kwargs):
   cache_root = os.path.abspath(cache_root)
   if not os.path.exists(cache_root):
     os.makedirs(cache_root, exist_ok=True)
 
   folder = tempfile.mkdtemp(dir=cache_root, **kwargs)
+  relpath = os.path.relpath(folder, cache_root)
 
-  return os.path.relpath(folder, cache_root)
+  hidden = os.path.join(cache_root, relpath, HIDDEN_FOLDER)
+  os.makedirs(hidden, exist_ok=True)
+
+  return relpath
 
 
 def save_uploaded_files(cache_root: str, folder: str, files: List[io.BytesIO]):

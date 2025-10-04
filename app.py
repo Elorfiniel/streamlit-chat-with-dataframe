@@ -4,7 +4,10 @@ from toolkit.database import (
   update_chat_name, update_chat_status,
 )
 from toolkit.fileio import create_cache_folder, save_uploaded_files, list_files
-from toolkit.chatbot import create_chatbot, init_chat_session
+from toolkit.chatbot import (
+  create_chat_model, create_chatbot,
+  init_chat_session, invoke_chatbot_tools,
+)
 from toolkit.ui import render_message, render_human_prompt, render_ai_response
 
 import dotenv
@@ -22,8 +25,12 @@ if 'session_db' not in st.session_state:
   st.session_state.session_db = connect_session(db_path=os.getenv('SESSION_DB'))
 if 'restore_id' not in st.session_state:
   st.session_state.restore_id = ''
-if 'chatbot' not in st.session_state:
-  st.session_state.chatbot = create_chatbot('gpt-4o-mini', message_db=os.getenv('MESSAGE_DB'))
+if 'chat_model' not in st.session_state:
+  st.session_state.chat_model = create_chat_model('gpt-4o-mini')
+  st.session_state.chatbot = create_chatbot(
+    model=st.session_state.chat_model,
+    message_db=os.getenv('MESSAGE_DB'),
+  )
 
 
 # Streamlit Callbacks to handle user interactions
@@ -146,7 +153,16 @@ if session_id:
         {'message': prompt['text']},
         config={'configurable': {'session_id': session_id}},
       )
-      render_ai_response(stream)
+      ai_message_chunk = render_ai_response(stream)
+      if ai_message_chunk.tool_calls:
+        tool_messages = invoke_chatbot_tools(
+          session_history=session_history,
+          tool_calls=ai_message_chunk.tool_calls,
+          cache_root=os.getenv('CACHE_ROOT'),
+          folder=chat_history.folder,
+        )
+        for tool_message in tool_messages:
+          render_message(tool_message)
 
 else:
   st.header('Welcome!', divider='red')
