@@ -19,9 +19,10 @@ Now, start the conversation by asking for the user's goals and requirements.
 '''
 
 DEFAULT_TOOL_GUIDELINES = '''
-- Always use relative paths for file operations, ie. `data.csv`, `images/temp.png`.
-- Always consult the user before any unsafe operations are performed.
-- When using code tools, keep stdout and stderr separate for different purposes.
+- (General) Always use relative paths for file operations, ie. `data.csv`, `images/temp.png`.
+- (General) Always consult the user before any unsafe operations are performed.
+- (Code) When using code tools, keep stdout and stderr separate for different purposes.
+- (Code) The code runs via command line, rather than interactive environments like Jupyter Notebook.
 '''
 
 DEFAULT_GUIDELINES = '''
@@ -46,6 +47,9 @@ CONVERSATION_OPENINGS = [
 CODE_GENERATION_PROMPT_TEMPLATE = '''
 You are an expert data analyst that can write Python scripts to perform data analysis task.
 Please read the description below, then write a Python script to complete the requirements.
+
+The scripts will be executed via command line, please avoid interactive statements.
+In other words, stick to file operations such as `open`, `plt.imwrite` and, `df.to_csv`.
 
 Allowed modules: {allowed_modules}
 
