@@ -3,12 +3,12 @@ from toolkit.database import (
   create_chat_history, ChatHistory,
   update_chat_name, update_chat_status,
 )
-from toolkit.fileio import create_cache_folder, save_uploaded_files, list_files
-from toolkit.chatbot import (
-  create_chat_model, create_chatbot,
-  init_chat_session, invoke_chatbot_tools,
+from toolkit.fileio import (
+  FileContext, create_cache_folder,
+  save_uploaded_files, list_files,
 )
-from toolkit.ui import render_message, render_human_prompt, render_ai_response
+from toolkit.chatbot import create_chatbot, init_chat_session
+from toolkit.ui import render_human_prompt, render_message
 
 import dotenv
 import os
@@ -26,11 +26,7 @@ if 'session_db' not in st.session_state:
 if 'restore_id' not in st.session_state:
   st.session_state.restore_id = ''
 if 'chat_model' not in st.session_state:
-  st.session_state.chat_model = create_chat_model('gpt-4o-mini')
-  st.session_state.chatbot = create_chatbot(
-    model=st.session_state.chat_model,
-    message_db=os.getenv('MESSAGE_DB'),
-  )
+  st.session_state.chatbot = create_chatbot('gpt-4o-mini', os.getenv('MESSAGE_DB'))
 
 
 # Streamlit Callbacks to handle user interactions
@@ -133,6 +129,8 @@ with st.sidebar:
 
 # Streamlit Main Content
 if session_id:
+  FileContext.get_instance(cache_root=os.getenv('CACHE_ROOT'), folder=chat_history.folder)
+
   session_history = st.session_state.chatbot.get_session_history(session_id)
   for message in session_history.get_messages():
     render_message(message)
@@ -153,16 +151,8 @@ if session_id:
         {'message': prompt['text']},
         config={'configurable': {'session_id': session_id}},
       )
-      ai_message_chunk = render_ai_response(stream)
-      if ai_message_chunk.tool_calls:
-        tool_messages = invoke_chatbot_tools(
-          session_history=session_history,
-          tool_calls=ai_message_chunk.tool_calls,
-          cache_root=os.getenv('CACHE_ROOT'),
-          folder=chat_history.folder,
-        )
-        for tool_message in tool_messages:
-          render_message(tool_message)
+      for message in stream:
+        render_message(message)
 
 else:
   st.header('Welcome!', divider='red')

@@ -6,9 +6,7 @@ from langchain_core.messages import (
   ToolMessage, ToolMessageChunk,
   ChatMessage, ChatMessageChunk,
 )
-from typing import Dict, List, Iterator, Union
-
-from toolkit.tools import code_execution
+from typing import Dict, List, Union
 
 import json
 import streamlit as st
@@ -51,20 +49,12 @@ def render_tool_calls(tool_calls: List[Dict]):
 
 def render_tool_message(message: ToolMessage):
   with st.expander('Tool Call ID: ' + message.tool_call_id, expanded=True):
-    content = json.loads(message.content)
-
-    if 'ex_type' in content:
-      st.error(f'{content["ex_type"]}: {content["message"]}')
-
-    elif message.name == code_execution.name:
-      if content['status'].startswith('Failure'):
-        st.error(content['status'])
-        st.markdown(f'```plain\n{content["stderr"]}\n```')
-      else:
-        st.markdown(f'```plain\n{content["stdout"]}\n```')
-
-    else:
-      st.markdown(f'```json\n{json.dumps(content, indent=2)}\n```')
+    try:
+      content = json.loads(message.content)
+      content = json.dumps(content, indent=2)
+      st.markdown(f'```json\n{content}\n```')
+    except:
+      st.markdown(f'```text\n{message.content}\n```')
 
 
 def render_message(message: BaseMessage):
@@ -81,20 +71,3 @@ def render_message(message: BaseMessage):
 def render_human_prompt(prompt: str):
   with st.chat_message('human', avatar=message_avatar('human')):
     st.markdown(prompt)
-
-
-def render_ai_response(stream: Iterator):
-  ai_message_chunk = AIMessageChunk(content='')
-
-  def custom_stream(stream: Iterator):
-    nonlocal ai_message_chunk
-    for chunk in stream:
-      ai_message_chunk = ai_message_chunk + chunk
-      if chunk.content: yield chunk
-
-  with st.chat_message('ai', avatar=message_avatar('ai')):
-    st.write_stream(custom_stream(stream))
-    if not ai_message_chunk.content:
-      render_tool_calls(ai_message_chunk.tool_calls)
-
-  return ai_message_chunk

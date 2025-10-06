@@ -1,4 +1,4 @@
-from typing import List
+from typing import Dict, List
 
 import io
 import os
@@ -6,6 +6,32 @@ import tempfile
 
 
 HIDDEN_FOLDER = '.hidden'
+
+
+class FileContext:
+  _instance = None
+
+  def __new__(cls, cache_root: str, folder: str):
+    if cls._instance is None:
+      cls._instance = super(FileContext, cls).__new__(cls)
+
+    cls._instance.set_context(cache_root, folder)
+
+    return cls._instance
+
+  def set_context(self, cache_root: str, folder: str):
+    self.context = dict(
+      cache_root=cache_root, folder=folder,
+    )
+
+  def cwd(self) -> Dict[str, str]:
+    return os.path.join(self.context['cache_root'], self.context['folder'])
+
+  @classmethod
+  def get_instance(cls, *, cache_root: str = None, folder: str = None):
+    if cache_root and folder:
+      return cls(cache_root, folder)
+    return cls._instance
 
 
 def create_cache_folder(cache_root: str, **kwargs):
