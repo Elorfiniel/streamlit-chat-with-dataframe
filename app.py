@@ -1,12 +1,13 @@
+from streamlit_file_browser import st_file_browser
+from typing import Optional
+
 from toolkit.database import (
   connect_session, search_active_chats,
   create_chat_history, ChatHistory,
   update_chat_name, update_chat_status,
 )
-from toolkit.fileio import (
-  FileContext, create_cache_folder,
-  save_uploaded_files, list_files,
-)
+from toolkit.fileio import create_cache_folder, save_uploaded_files
+from toolkit.fileio import FileContext, HIDDEN_FOLDER
 from toolkit.chatbot import create_chatbot, init_chat_session
 from toolkit.ui import render_human_prompt, render_message
 
@@ -27,6 +28,8 @@ if 'restore_id' not in st.session_state:
   st.session_state.restore_id = ''
 if 'chat_model' not in st.session_state:
   st.session_state.chatbot = create_chatbot('gpt-4o-mini', os.getenv('MESSAGE_DB'))
+if 'browse_file' not in st.session_state:
+  st.session_state.browse_file = False
 
 
 # Streamlit Callbacks to handle user interactions
@@ -60,75 +63,102 @@ def delete_chat_cb(chat_id: str):
     chat_id=chat_id, status='delete',
   )
 
+def browse_file_cb():
+  st.session_state.browse_file = not st.session_state.browse_file
+
+def dismiss_file_cb():
+  st.session_state.browse_file = False
+
 
 # Streamlit Sidebar
-with st.sidebar:
-  st.title('Chat with DataFrame')
+def streamlit_welcome():
+  st.header('Welcome!', divider='red')
 
-  # Select from a list of active chat sessions
-  chat_history_list = search_active_chats(st.session_state.session_db)
-  if chat_history_list:
-    chat_history = st.selectbox(
-      label='Active Chat Sessions',
-      options=chat_history_list,
-      format_func=lambda x: x.name,
-      index={
-        chat_history.id: idx for idx, chat_history in enumerate(chat_history_list)
-      }.get(st.session_state.restore_id, None),
-      placeholder='Select Chat Session',
-    )
-    session_id = chat_history.id if chat_history else ''
+  st.markdown('''
+  This Streamlit APP allows you to interact with `pandas` DataFrames through natural language
+  queries. The APP leverages LLMs to interpret your questions and generate appropriate code
+  to manipulate and analyze your data. Please have fun **experimenting with your data**!
+  ''')
 
-  else:
-    session_id = ''
+  st.header('Quickstart', divider='red')
 
-  more_actions = st.segmented_control(
-    label='More Chat Actions',
-    options=['Create', 'Rename', 'Delete'],
-    default='Create', width='stretch',
+  st.markdown('''
+  1. Create a new chat session, or select from an existing one.
+  2. Upload your data for analysis, if not already uploaded.
+  3. Ask questions about your data using natural language.
+  4. The agentic APP will make mistakes, so please be skeptical.
+  ''')
+
+@st.dialog('Browse Files', width='medium', on_dismiss=dismiss_file_cb)
+def streamlit_file_browser(cache_root: str, folder: str):
+  st_file_browser(
+    path= os.path.join(cache_root, folder),
+    show_rename_file=True,
+    show_delete_file=True,
+    ignore_file_select_event=True,
   )
 
-  if more_actions == 'Create':
-    chat_name = st.text_input(label='Name Chat Session', max_chars=255)
-    st.button(
-      label='Submit', type='primary', width='stretch',
-      on_click=create_chat_cb, args=(chat_name, ),
+def streamlit_sidebar():
+  with st.sidebar:
+    st.title('Chat with DataFrame')
+
+    # Select from a list of active chat sessions
+    chat_history_list = search_active_chats(st.session_state.session_db)
+    if chat_history_list:
+      chat_history = st.selectbox(
+        label='Active Chat Sessions',
+        options=chat_history_list,
+        format_func=lambda x: x.name,
+        index={
+          chat_history.id: idx for idx, chat_history in enumerate(chat_history_list)
+        }.get(st.session_state.restore_id, None),
+        placeholder='Select Chat Session',
+      )
+      session_id = chat_history.id if chat_history else ''
+
+    else:
+      session_id, chat_history = '', None
+
+    more_actions = st.segmented_control(
+      label='More Chat Actions',
+      options=['Create', 'Rename', 'Delete'],
+      default='Create', width='stretch',
     )
 
-  if more_actions == 'Rename':
-    if session_id:
-      chat_name = st.text_input(label='Custom Chat Name', max_chars=255)
+    if more_actions == 'Create':
+      chat_name = st.text_input(label='Name Chat Session', max_chars=255)
       st.button(
         label='Submit', type='primary', width='stretch',
-        on_click=rename_chat_cb,
-        args=(chat_name, session_id),
+        on_click=create_chat_cb, args=(chat_name, ),
       )
-    else:
-      st.info('Select a chat session to rename.', icon=':material/info:')
 
-  if more_actions == 'Delete':
-    if session_id:
-      st.button(
-        label='Delete', type='primary', width='stretch',
-        on_click=delete_chat_cb, args=(session_id, ),
-      )
-    else:
-      st.info('Select a chat session to delete.', icon=':material/info:')
-
-  if session_id:
-    st.divider()
-    with st.expander('Cached Files', expanded=True):
-      st.markdown('\n'.join([
-        f'`{filename}`'
-        for filename in list_files(
-          cache_root=os.getenv('CACHE_ROOT'),
-          folder=chat_history.folder,
+    if more_actions == 'Rename':
+      if session_id:
+        chat_name = st.text_input(label='Custom Chat Name', max_chars=255)
+        st.button(
+          label='Submit', type='primary', width='stretch',
+          on_click=rename_chat_cb,
+          args=(chat_name, session_id),
         )
-      ]) or 'No files found.')
+      else:
+        st.info('Select a chat session to rename.', icon=':material/info:')
 
+    if more_actions == 'Delete':
+      if session_id:
+        st.button(
+          label='Delete', type='primary', width='stretch',
+          on_click=delete_chat_cb, args=(session_id, ),
+        )
+      else:
+        st.info('Select a chat session to delete.', icon=':material/info:')
 
-# Streamlit Main Content
-if session_id:
+    if session_id and st.button('Browse Files', width='stretch', on_click=browse_file_cb):
+      if st.session_state.browse_file:
+        streamlit_file_browser(cache_root=os.getenv('CACHE_ROOT'), folder=chat_history.folder)
+
+  return session_id, chat_history
+
+def streamlit_content(session_id: str, chat_history: Optional[ChatHistory]):
   FileContext.get_instance(cache_root=os.getenv('CACHE_ROOT'), folder=chat_history.folder)
 
   session_history = st.session_state.chatbot.get_session_history(session_id)
@@ -154,20 +184,10 @@ if session_id:
       for message in stream:
         render_message(message)
 
+
+# Streamlit App
+session_id, chat_history = streamlit_sidebar()
+if session_id:
+  streamlit_content(session_id, chat_history)
 else:
-  st.header('Welcome!', divider='red')
-
-  st.markdown('''
-  This Streamlit APP allows you to interact with `pandas` DataFrames through natural language
-  queries. The APP leverages LLMs to interpret your questions and generate appropriate code
-  to manipulate and analyze your data. Please have fun **experimenting with your data**!
-  ''')
-
-  st.header('Quickstart', divider='red')
-
-  st.markdown('''
-  1. Create a new chat session, or select from an existing one.
-  2. Upload your data for analysis, if not already uploaded.
-  3. Ask questions about your data using natural language.
-  4. The agentic APP will make mistakes, so please be skeptical.
-  ''')
+  streamlit_welcome()
