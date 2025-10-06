@@ -6,8 +6,7 @@ from toolkit.database import (
   create_chat_history, ChatHistory,
   update_chat_name, update_chat_status,
 )
-from toolkit.fileio import create_cache_folder, save_uploaded_files
-from toolkit.fileio import FileContext, HIDDEN_FOLDER
+from toolkit.fileio import FileContext, create_cache_folder, save_uploaded_files
 from toolkit.chatbot import create_chatbot, init_chat_session
 from toolkit.ui import render_human_prompt, render_message
 

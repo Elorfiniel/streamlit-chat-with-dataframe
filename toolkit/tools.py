@@ -42,7 +42,7 @@ def save_generation(text: str, filename: str, code: bool) -> Dict[str, str]:
 
 
 @tool(parse_docstring=True)
-def code_execution(path: str) -> CodeResult:
+def code_execution(path: str) -> Dict[str, str]:
   '''Execute Python script file, return execution result.
 
   Args:

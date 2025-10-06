@@ -8,6 +8,8 @@ from langchain_core.messages import (
 )
 from typing import Dict, List, Union
 
+from toolkit.tools import code_execution
+
 import json
 import streamlit as st
 
@@ -51,7 +53,12 @@ def render_tool_message(message: ToolMessage):
   with st.expander('Tool Call ID: ' + message.tool_call_id, expanded=True):
     try:
       content = json.loads(message.content)
-      content = json.dumps(content, indent=2)
+      if message.additional_kwargs['name'] == code_execution.name:
+        exec_failed = content['status'].startswith('Failure')
+        if exec_failed: st.error(content['status'])
+        content = content['stderr'] if exec_failed else content['stdout']
+      else:
+        content = json.dumps(content, indent=2)
       st.markdown(f'```json\n{content}\n```')
     except:
       st.markdown(f'```text\n{message.content}\n```')
