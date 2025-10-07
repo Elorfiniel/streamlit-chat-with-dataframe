@@ -1,5 +1,6 @@
 from streamlit_file_browser import st_file_browser
 from typing import Optional
+from warnings import filterwarnings
 
 from toolkit.database import (
   connect_session, search_active_chats,
@@ -16,8 +17,9 @@ import streamlit as st
 import uuid
 
 
-# Environment Variables
-dotenv.load_dotenv()
+# Application configuration
+filterwarnings('ignore', category=FutureWarning)
+dotenv.load_dotenv('.env', verbose=False)
 
 
 # Streamlit State Session
