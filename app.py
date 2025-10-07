@@ -110,12 +110,7 @@ def streamlit_welcome():
 
 @st.dialog('Browse Files', width='medium', on_dismiss=dismiss_file_cb)
 def streamlit_file_browser(cache_root: str, folder: str):
-  st_file_browser(
-    path= os.path.join(cache_root, folder),
-    show_rename_file=True,
-    show_delete_file=True,
-    ignore_file_select_event=True,
-  )
+  st_file_browser(path= os.path.join(cache_root, folder))
 
 def streamlit_sidebar():
   with st.sidebar:
