@@ -69,6 +69,26 @@ def dismiss_file_cb():
   st.session_state.browse_file = False
 
 
+# Helper functions
+def format_user_message(user_inputs: dict):
+  user_message = user_inputs['text']
+  if user_inputs['files']:
+    file_entries = []
+    for file in user_inputs['files']:
+      status = user_inputs['status'][file.name]
+      if status[0]:
+        entry = f'- {file.name}: {file.type}, success.'
+      else:
+        failure_details = f'failure ({status[1]}, {status[2]})'
+        entry = f'- {file.name}: {file.type}, {failure_details}.'
+      file_entries.append(entry)
+
+    files = '\n\n'.join(['**Uploaded Files**', '\n'.join(file_entries)])
+    user_message = '\n\n'.join([user_message, files])
+
+  return user_message
+
+
 # Streamlit Sidebar
 def streamlit_welcome():
   st.header('Welcome!', divider='red')
@@ -165,23 +185,24 @@ def streamlit_content(session_id: str, chat_history: Optional[ChatHistory]):
     render_message(message)
 
   file_kwargs = dict(accept_file=True, file_type=['csv', 'txt', 'xlsx'])
-  if prompt := st.chat_input('Chat with Me!', **file_kwargs):
-    if prompt['files']:
+  if user_inputs := st.chat_input('Chat with Me!', **file_kwargs):
+    if user_inputs['files']:
       with st.spinner('Caching uploaded files...', show_time=True, width='stretch'):
         file_status = save_uploaded_files(
           cache_root=os.getenv('CACHE_ROOT'),
-          folder=chat_history.folder, files=prompt['files'],
+          folder=chat_history.folder, files=user_inputs['files'],
         )
+      user_inputs['status'] = file_status
 
-    if prompt['text']:
-      render_human_prompt(prompt['text'])
+    user_message = format_user_message(user_inputs)
+    render_human_prompt(user_message)
 
-      stream = st.session_state.chatbot.stream(
-        {'message': prompt['text']},
-        config={'configurable': {'session_id': session_id}},
-      )
-      for message in stream:
-        render_message(message)
+    stream = st.session_state.chatbot.stream(
+      {'message': user_message},
+      config={'configurable': {'session_id': session_id}},
+    )
+    for message in stream:
+      render_message(message)
 
 
 # Streamlit App
