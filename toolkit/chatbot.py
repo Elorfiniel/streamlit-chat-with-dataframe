@@ -7,7 +7,7 @@ from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain.agents.format_scratchpad.tools import format_to_tool_messages
 from langchain.agents.output_parsers.tools import ToolAgentAction
 from langchain_core.agents import AgentStep
-from langchain_core.callbacks import CallbackManager
+# from langchain_core.callbacks import CallbackManager
 from langchain_core.messages import BaseMessage, AIMessageChunk, ToolMessage
 from langchain_core.runnables import Runnable
 from langchain_core.runnables.config import RunnableConfig
@@ -53,18 +53,18 @@ class AgentExecutorAdapter(Runnable):
     # it will save the output of AgentExecutor to the chat history.
     #
     # Hope someone out there has a better solution.
-    callback_manager = CallbackManager.configure(
-      inheritable_callbacks=config.pop('callbacks', None),
-    )
-    run_manager = callback_manager.on_chain_start(
-      None, input, run_id=None, name=self.get_name(),
-    )
+    # callback_manager = CallbackManager.configure(
+    #   inheritable_callbacks=config.pop('callbacks', None),
+    # )
+    # run_manager = callback_manager.on_chain_start(
+    #   None, input, run_id=None, name=self.get_name(),
+    # )
 
     result = self.agent_executor.invoke(input, config, **kwargs)
     messages = format_to_tool_messages(result['intermediate_steps'])
     messages.append(AIMessageChunk(content=result['output']))
 
-    run_manager.on_chain_end(messages)
+    # run_manager.on_chain_end(messages)
 
     return messages
 
@@ -78,14 +78,14 @@ class AgentExecutorAdapter(Runnable):
     _format_observation = lambda x: x if isinstance(x, str) else json.dumps(x)
 
     # [Experimental] Capture callbacks from RunnableWithMessageHistory
-    callback_manager = CallbackManager.configure(
-      inheritable_callbacks=config.pop('callbacks', None),
-    )
-    run_manager = callback_manager.on_chain_start(
-      None, input, run_id=None, name=self.get_name(),
-    )
+    # callback_manager = CallbackManager.configure(
+    #   inheritable_callbacks=config.pop('callbacks', None),
+    # )
+    # run_manager = callback_manager.on_chain_start(
+    #   None, input, run_id=None, name=self.get_name(),
+    # )
 
-    messages: List[BaseMessage] = []
+    # messages: List[BaseMessage] = []
 
     for addable_dict in self.agent_executor.stream(input, config, **kwargs):
       message = None
@@ -106,10 +106,10 @@ class AgentExecutorAdapter(Runnable):
         message = AIMessageChunk(content=addable_dict['output'])
 
       if message is not None:
-        messages.append(message)
+        # messages.append(message)
         yield message
 
-    run_manager.on_chain_end(messages)
+    # run_manager.on_chain_end(messages)
 
 
 def create_prompt(tool_guidelines: str, guidelines: str):
