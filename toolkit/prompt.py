@@ -21,9 +21,13 @@ Now, start the conversation by asking for the user's goals and requirements.
 DEFAULT_TOOL_GUIDELINES = '''
 - (General) Always use relative paths for file operations, ie. `data.csv`, `images/temp.png`.
 - (General) Always consult the user before any unsafe operations are performed.
+- (General) Summarize the tool execution and its output to provide constructive feedback.
 - (Code) When generating code, keep stdout and stderr separate for different purposes.
-- (Code) When generating code, stick to file operations such as `open`, `plt.imwrite` and, `df.to_csv`.
+- (Code) When generating code, save important contents or results to separate files.
+- (Code) Additionally, write to the console formatted messages about important contents or execution results.
 - (Code) Locally installed packages include `numpy`, `pandas`, `matplotlib`, `seaborn`, `scikit-learn`, `imbalanced-learn`.
+- (Code) Prioritize safe, reproducible, and efficient code practices.
+- (Tool) Before code execution, you should first save the generated code to a file.
 - (Tool) Code execution tool runs via command line, rather than interactive Jupyter Notebook.
 '''
 
@@ -33,7 +37,6 @@ DEFAULT_GUIDELINES = '''
 - If the tool's execution fails, try fixing the problem based on the error.
 - Describe the situation, if you cannot solve the problem after several attempts.
 - Tool execution might include multi-step processes. Make wise decisions.
-- Summarize the tool execution and its output to provide constructive feedback.
 '''
 
 CONVERSATION_OPENINGS = [
